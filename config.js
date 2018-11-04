@@ -1,8 +1,8 @@
 // Aqui fica a configuração com o banco de dados
 var config = {
-    server: 'tbtt.database.windows.net',
+    server: 'insensorserver.database.windows.net',
     userName: 'bandtec',
-    password: 'TBTTprojeto5'
+    password: ''
 
     , options: {
         debug: {
@@ -12,7 +12,7 @@ var config = {
             token: false,
             log: true
         },
-        database: 'TheBigTecTheory',
+        database: 'IncubadorasDB',
         encrypt: true // for Azure users
     }
 };

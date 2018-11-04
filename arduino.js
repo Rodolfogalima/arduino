@@ -3,26 +3,6 @@ const SerialPort = require('serialport');
 const Readline = SerialPort.parsers.Readline;
 var config = require('./config');
 
-
-// Define os parametros de configuração com o banco
-var config = {
-    server: 'tbtt.database.windows.net',
-    userName: 'bandtec',
-    password: 'TBTTprojeto5'
-
-    , options: {
-        debug: {
-            packet: true,
-            data: true,
-            payload: true,
-            token: false,
-            log: true
-        },
-        database: 'TheBigTecTheory',
-        encrypt: true // for Azure users
-    }
-};
-
 // Acesso ao banco de dados SQL Server
 var Connection = require('tedious').Connection;
 var Request = require('tedious').Request;
