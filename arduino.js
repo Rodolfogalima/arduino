@@ -41,7 +41,7 @@ function registrarLeitura(temperatura, umidade) {
 // Função que deleta os registros da tabela medicão quando for igual a 100
 function resetaMedicao() {
 
-    request = new Request("DELETE FROM medicao where @fkIncubadora = 5;", function (err, linhas) {
+    request = new Request("DELETE FROM medicao where @fkIncubadora = 1;", function (err, linhas) {
         if (err) {
             console.log(`Erro ao tentar deletar no banco: ${err} `);
         } else {
