@@ -1,20 +1,12 @@
-// Aqui fica a configuração com o banco de dados
-var config = {
-    server: 'insensorserver.database.windows.net',
-    userName: 'bandtec',
-    password: ''
+const config = {
+    user: 'bandtec',
+    password: 'Rodolfolink911',
+    server: 'insensorserver.database.windows.net', // You can use 'localhost\\instance' to connect to named instance
+    database: 'IncubadorasDB',
 
-    , options: {
-        debug: {
-            packet: true,
-            data: true,
-            payload: true,
-            token: false,
-            log: true
-        },
-        database: 'IncubadorasDB',
-        encrypt: true // for Azure users
+    options: {
+        encrypt: true // Use this if you're on Windows Azure
     }
-};
+}
 
 module.exports = config;

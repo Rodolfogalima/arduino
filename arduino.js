@@ -2,118 +2,164 @@
 const SerialPort = require('serialport');
 const Readline = SerialPort.parsers.Readline;
 var config = require('./config');
+var sql = require('mssql');
+var stats = require('stats-lite');
 
-// Acesso ao banco de dados SQL Server
-var Connection = require('tedious').Connection;
-var Request = require('tedious').Request;
-var TYPES = require('tedious').TYPES;
+//Faz a conexão com o banco
+sql.connect(config)
+    .then(conn => {
 
-//require('events').EventEmitter.prototype._maxListeners = 100;
-require('events').EventEmitter.defaultMaxListeners = 15;
+        console.log("Conectado!")
+              
+        //-------------------------------------------------------------------------------
+        // Função que registra a leitura do arduino no banco de dados na Nuvem
+        function setLeitura(temperatura, umidade) {
+            let fkIncubadora = 1;
 
+            conn.query`INSERT into medicao values ( ${temperatura}, ${umidade}, ${fkIncubadora});`
+                .then(() => {
 
+                    console.log("Registro de medicão salvo!");
+                }).catch(() => {
 
-// Faz a conexão com o banco com os parametros da variável config
-var connection = new Connection(config);
+                    console.log("Erro ao registrar medicão");
+                });
 
-
-// Função que registra a leitura do arduino no banco de dados na Núvem
-function registrarLeitura(temperatura, umidade) {
-
-    let fkIncubadora = 1;
-
-    request = new Request("INSERT into medicao  values ( @temperatura, @umidade, @fkIncubadora);", function (err, linhas) {
-        if (err) {
-            console.log(`Erro ao tentar gravar no banco: ${err} `);
-        } else {
-            console.log(`Registro salvo com sucesso. Linhas afetadas: ${linhas}`);
         }
-    });
+        //-------------------------------------------------------------------------------------
+        // Função que deleta os registros da tabela medicão quando for igual a 100
+        function resetaMedicao() {
+            conn.query`DELETE top(100) from medicao ;`
+                .then(() => {
 
-    request.addParameter('temperatura', TYPES.Decimal, temperatura);
-    request.addParameter('umidade', TYPES.Decimal, umidade);
-    request.addParameter('fkIncubadora', TYPES.Decimal, fkIncubadora);
+                    console.log("Registros de medicão deletados!");
+                }).catch(() => {
 
-    connection.execSql(request);
+                    console.log("Erro ao deletar medicões");
+                });
 
-
-}
-// Função que deleta os registros da tabela medicão quando for igual a 100
-function resetaMedicao() {
-
-    request = new Request("DELETE FROM medicao where fkIncubadora = 1;", function (err, linhas) {
-        if (err) {
-            console.log(`Erro ao tentar deletar no banco: ${err} `);
-        } else {
-            console.log(`Registro DELETADO com sucesso. Linhas afetadas: ${linhas}`);
         }
-    });
+        //------------------------------------------------------------------
+        function getEstatistica() {
 
-    connection.execSql(request);
+            conn.query`SELECT top(100) temperatura,umidade FROM medicao;`
+                .then((resultado) => {
+                  
 
-}
+                    let temperatura = [];
+                    let umidade = [];
+
+                    for (data of resultado.recordset) {
+
+                        temperatura.push(data.temperatura);
+                        umidade.push(data.umidade);
+                    }
+                    
+                    let estatisticas = {
+                    //Estatisticas temperatura
+                     mediaTemp : parseInt(stats.mean(temperatura)),
+                    medianaTemp : parseInt(stats.median(temperatura)),
+                    dvPdTemp : parseInt(stats.stdev(temperatura)),
+                     q1Temp : parseInt(stats.percentile(temperatura, 0.25)),
+                     q3Temp : parseInt(stats.percentile(temperatura, 0.75)),
+                     minTemp : Math.min(...temperatura),
+                     maxTemp : Math.max(...temperatura),
+                    
+                    //Estatisticas umidade
+                    mediaUmid : parseInt(stats.mean(umidade)),
+                    medianaUmid : parseInt(stats.median(umidade)),
+                    dvPdUmid : parseInt(stats.stdev(umidade)),
+                    q1Umid : parseInt(stats.percentile(umidade, 0.25)),
+                    q3Umid : parseInt(stats.percentile(umidade, 0.75)),
+                    minUmid : Math.min(...umidade),
+                    maxUmid : Math.max(...umidade)
+                    };
+                    
+                    setEstatistica(estatisticas);
+                    
+
+                }).catch(() => {
+
+                    console.log("Erro ao gerar estatisticas");
+                });
+
+        };
+        //--------------------------------------------------------------------------
+        function setEstatistica(estatisticas) {
+            
+            conn.query`insert into estatistica values (${estatisticas.mediaTemp},
+                                                       ${estatisticas.medianaTemp},
+                                                       ${estatisticas.dvPdTemp},
+                                                       ${estatisticas.q1Temp},
+                                                       ${estatisticas.q3Temp},
+                                                       ${estatisticas.minTemp},
+                                                       ${estatisticas.maxTemp},
+                                                       ${estatisticas.mediaUmid},
+                                                       ${estatisticas.medianaUmid},
+                                                       ${estatisticas.dvPdUmid},
+                                                       ${estatisticas.q1Umid},
+                                                       ${estatisticas.q3Umid},
+                                                       ${estatisticas.minUmid},
+                                                       ${estatisticas.maxUmid})`
+                .then((resultado) => {
+                        console.log("Estatisticas salvas!")
+
+                }).catch(()=>{});
+        }
 
 
 
-class ArduinoDataRead {
-
-    constructor() { }
-
-    SetConnection() {
 
 
+        //--------------------------------------------------------------------------------------------
+        function setConnection() {
 
-        SerialPort.list().then(listSerialDevices => {
+            SerialPort.list().then(listSerialDevices => {
 
-            let listArduinoSerial = listSerialDevices.filter(serialDevice => {
-                return serialDevice.vendorId == 2341 && serialDevice.productId == 43;
-            });
+                let listArduinoSerial = listSerialDevices.filter(serialDevice => {
+                    return serialDevice.vendorId == 2341 && serialDevice.productId == 43;
+                });
 
-            if (listArduinoSerial.length != 1) {
-                throw new Error("The Arduino was not connected or has many boards connceted");
-            }
-
-            console.log("Arduino found in the com %s", listArduinoSerial[0].comName);
-
-            return listArduinoSerial[0].comName;
-
-        }).then(arduinoCom => {
-
-            let arduino = new SerialPort(arduinoCom, { baudRate: 9600 });
-
-            const parser = new Readline();
-            arduino.pipe(parser);
-            let cont = 0;
-
-            parser.on('data', (data) => {
-                cont++;
-                console.error('recebeu do arduino');
-
-                if (cont > 100) {
-                    cont = 0;
-                    resetaMedicao();
-                } else {
-
-                    const leitura = data.split(';'); // temperatura ; umidade
-                    registrarLeitura(Number(leitura[0]), Number(leitura[1]));
+                if (listArduinoSerial.length != 1) {
+                    throw new Error("The Arduino was not connected or has many boards connceted");
                 }
 
+                console.log("Arduino found in the com %s", listArduinoSerial[0].comName);
+
+                return listArduinoSerial[0].comName;
+
+            }).then(arduinoCom => {
+
+                let arduino = new SerialPort(arduinoCom, { baudRate: 9600 });
+
+                const parser = new Readline();
+                arduino.pipe(parser);
+                let cont = 0;
+
+                parser.on('data', (data) => {
+                    cont++;
+                    console.error('recebeu do arduino');
+
+                    if (cont > 100) {
+                        cont = 0;
+                        setEstatistica();
+                    } else {
+
+                        const leitura = data.split(';'); // temperatura ; umidade
+                        setLeitura(Number(leitura[0]), Number(leitura[1]));
+                    }
 
 
-            });
 
-        }).catch(error => console.log(`Erro ao receber dados do Arduino ${error}`));
-    }
-}
+                });
 
-const serial = new ArduinoDataRead();
-
-// Evento que escuta a conexão com o banco. Esse código só rodará quando ouvir uma conexão.
-connection.on('connect', function (errc) {
-
-    serial.SetConnection();
-});
+            }).catch(error => console.log(`Erro ao receber dados do Arduino ${error}`));
+        }
 
 
+        setLeitura(27,80);
 
-module.exports.ArduinoData = { List: serial.List } 
+        // getEstatistica();
+
+    });
+
