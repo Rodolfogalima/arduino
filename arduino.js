@@ -84,6 +84,7 @@ sql.connect(config)
                 });
 
         };
+
         //--------------------------------------------------------------------------
         function setEstatistica(estatisticas) {
             
@@ -157,9 +158,8 @@ sql.connect(config)
         }
 
 
-        setLeitura(27,80);
-
-        // getEstatistica();
+        
+        setConnection();
 
     });
 
