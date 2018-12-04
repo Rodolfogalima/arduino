@@ -36,6 +36,7 @@ sql.connect(config)
                     for (let i = 0; i < result.recordset.length; i++) {
 
                         let fkIncubadora = result.recordset[i].idIncubadora;
+                        
 
                         conn.query`INSERT into medicao values ( ${temperatura}, ${umidade}, ${fkIncubadora},${date},${time});`
                             .then(() => {
@@ -91,7 +92,7 @@ sql.connect(config)
 
                    
                         const leitura = data.split(';'); // temperatura ; umidade
-                         setLeitura(Number(leitura[0]), Number(leitura[1]));
+                         setLeitura(parseInt(leitura[0]), parseInt(leitura[1]));
                     
 
                 });
@@ -99,7 +100,7 @@ sql.connect(config)
             }).catch(error => console.log(`Erro ao receber dados do Arduino ${error}`));
         }
 
-       
+       setConnection();
 
     });
 
